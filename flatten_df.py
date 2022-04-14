@@ -24,7 +24,6 @@ read_nested_json_flag = True
 
 while read_nested_json_flag:
     df = read_nested_json(df)
-    df.show(100, False)
     read_nested_json_flag = False
 
     for column_name in df.schema.names:

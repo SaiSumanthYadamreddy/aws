@@ -1,14 +1,35 @@
-from pyspark.sql.functions import explode_outer,col
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
 
-def flatten_df(nested_df):
-    flat_cols = [c[0] for c in nested_df.dtypes if (c[1][:6] != 'struct' or c[1][:6] == 'struct')]
-    print(flat_cols)
-    nested_cols = [c[0] for c in nested_df.dtypes if c[1][:12] == 'array<struct']
-    print(nested_cols)
-    for i in range(len(nested_cols)):
-        col_name = nested_cols[i]
-        print(col_name)
-        flat_df = nested_df.select(flat_cols + [explode_outer(nested_df[col_name]).alias(col_name+'_'+'col')])
-        flat_df = flat_df.select(flat_cols + [col_name+'_'+'col'+'.*'])
-        flat_df = flat_df.drop(col(col_name))
-    return flat_df
+def read_nested_json(df):
+    column_list = []
+
+    for column_name in df.schema.names:
+        
+        if isinstance(df.schema[column_name].dataType, ArrayType):            
+            df = df.withColumn(column_name, explode(column_name).alias(column_name))
+            column_list.append(column_name)
+
+        elif isinstance(df.schema[column_name].dataType, StructType):            
+            for field in df.schema[column_name].dataType.fields:
+                column_list.append(col(column_name + "." + field.name).alias(column_name + "_" + field.name))
+        else:
+            column_list.append(column_name)
+
+    
+    df = df.select(column_list)
+    return df
+
+read_nested_json_flag = True
+
+while read_nested_json_flag:
+    df = read_nested_json(df)
+    df.show(100, False)
+    read_nested_json_flag = False
+
+    for column_name in df.schema.names:
+        if isinstance(df.schema[column_name].dataType, ArrayType):
+            read_nested_json_flag = True
+        elif isinstance(df.schema[column_name].dataType, StructType):
+            read_nested_json_flag = True
+
